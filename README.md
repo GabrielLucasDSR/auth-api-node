@@ -95,3 +95,10 @@ curl http://localhost:3000/users/me \
 
 - Logs do Prisma limitados a `warn/error` para reduzir ruído.
 - `docker-compose` expõe Postgres em `localhost:5432`, compatível com as URLs de `.env` e `.env.test`.
+
+## Próximos passos
+- Implementar `jti` + rotação e revogação de refresh tokens no Prisma.
+- Validar payloads com Zod/Joi e unificar respostas de erro.
+- Adicionar logs estruturados (pino) e correlation id via middleware.
+- Configurar CI (GitHub Actions) com docker-compose, testes e lint.
+- Cobrir services com testes unitários para cenários de erro e borda.
