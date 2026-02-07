@@ -1,24 +1,24 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { randomUUID } = require("crypto");
 const authConfig = require("../config/auth");
 const userRepository = require("../repositories/userRepository");
 const refreshTokenRepository = require("../repositories/refreshTokenRepository");
-const AppError = require("../errors/AppError");
+const AppError = require("../errors/AppError"); 
 
 const HASH_ROUNDS = 8;
 const ACCESS_TOKEN_EXPIRES_IN = authConfig.jwt.expiresIn;
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
-// Normalização evita duplicidade por caixa (John@test.com vs john@test.com)
+/**
+ * Service de autenticação
+ * - Normaliza email
+ * - Gera access/refresh tokens
+ * - Mantém refresh tokens versionados e revogáveis no banco
+ */
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
 class AuthService {
-  /**
-   * Registro de usuário
-   * - Email normalizado
-   * - Senha sempre hasheada
-   * - Nunca retorna senha
-   */
   async register({ name, email, password }) {
     const normalizedEmail = normalizeEmail(email);
 
@@ -39,12 +39,6 @@ class AuthService {
     return rest;
   }
 
-  /**
-   * Login
-   * - Valida credenciais
-   * - Gera access token + refresh token
-   * - Persiste refresh token no banco
-   */
   async login({ email, password }) {
     const normalizedEmail = normalizeEmail(email);
 
@@ -62,13 +56,17 @@ class AuthService {
       expiresIn: ACCESS_TOKEN_EXPIRES_IN,
     });
 
-    const refreshToken = jwt.sign({ id: user.id }, authConfig.jwt.secret, {
-      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
-    });
+    // Refresh token com jti único para permitir rotação e revogação
+    const refreshJti = randomUUID();
+    const refreshToken = jwt.sign(
+      { id: user.id, jti: refreshJti },
+      authConfig.jwt.secret,
+      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
+    );
 
-    // Salva refresh token (regra crítica para os testes)
     await refreshTokenRepository.create({
       token: refreshToken,
+      jti: refreshJti,
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
@@ -76,12 +74,6 @@ class AuthService {
     return { token, refreshToken };
   }
 
-  /**
-   * Refresh token
-   * - Token precisa existir no banco
-   * - Token precisa ser válido
-   * - Token expirado é inválido
-   */
   async refreshToken(token) {
     if (!token) {
       throw new AppError("invalid refresh token", 400, "INVALID_REFRESH_TOKEN");
@@ -92,36 +84,57 @@ class AuthService {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
     }
 
+    let decoded;
     try {
-      const decoded = jwt.verify(token, authConfig.jwt.secret);
-
-      return jwt.sign({ id: decoded.id }, authConfig.jwt.secret, {
-        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-      });
+      decoded = jwt.verify(token, authConfig.jwt.secret);
     } catch {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
     }
+
+    // Garante que o estado no banco prevalece sobre o JWT assinado
+    if (storedToken.revoked)
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    if (storedToken.expiresAt <= new Date())
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    if (decoded.jti !== storedToken.jti)
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+
+    // Rotação: revoga o usado e emite novo par
+    await refreshTokenRepository.revoke(token);
+
+    const newAccessToken = jwt.sign({ id: decoded.id }, authConfig.jwt.secret, {
+      expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+    });
+
+    const newRefreshJti = randomUUID();
+    const newRefreshToken = jwt.sign(
+      { id: decoded.id, jti: newRefreshJti },
+      authConfig.jwt.secret,
+      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
+    );
+
+    await refreshTokenRepository.create({
+      token: newRefreshToken,
+      jti: newRefreshJti,
+      userId: decoded.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    return { token: newAccessToken, refreshToken: newRefreshToken };
   }
 
-  /**
-   * Logout
-   * - Invalida refresh token
-   * - Token inexistente ou já invalidado → erro
-   */
   async logout(token) {
     if (!token) {
       throw new AppError("invalid refresh token", 400, "INVALID_REFRESH_TOKEN");
     }
 
     const storedToken = await refreshTokenRepository.findByToken(token);
-
-    // Se o token nunca existiu → erro
     if (!storedToken) {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
     }
 
-    // Se existiu, pode deletar (mesmo que já esteja inválido depois)
-    await refreshTokenRepository.delete(token);
+    // Revoga o refresh token para impedir reuso
+    await refreshTokenRepository.revoke(token);
   }
 }
 

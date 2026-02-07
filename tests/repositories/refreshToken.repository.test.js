@@ -1,3 +1,5 @@
+const { randomUUID } = require("crypto");
+
 const refreshTokenRepo = require("../../src/repositories/refreshTokenRepository");
 const prisma = require("../../src/config/prisma");
 
@@ -22,7 +24,9 @@ describe("RefreshTokenRepository", () => {
     });
 
     const token = await refreshTokenRepo.create({
+      // jti único é obrigatório para unicidade e rotação
       token: "token123",
+      jti: randomUUID(),
       userId: user.id,
       expiresAt: new Date(Date.now() + 10000),
     });
@@ -42,6 +46,7 @@ describe("RefreshTokenRepository", () => {
 
     await refreshTokenRepo.create({
       token: "duplicado",
+      jti: randomUUID(), // cada refresh precisa de jti diferente
       userId: user.id,
       expiresAt: new Date(Date.now() + 10000),
     });
@@ -49,6 +54,7 @@ describe("RefreshTokenRepository", () => {
     await expect(
       refreshTokenRepo.create({
         token: "duplicado",
+        jti: randomUUID(),
         userId: user.id,
         expiresAt: new Date(Date.now() + 10000),
       }),
