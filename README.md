@@ -1,50 +1,97 @@
-# Auth API (Node.js)
+# Auth API (Node.js + Express + Prisma)
 
-A simple and clean authentication API built with Node.js and Express :)
+API de autenticação JWT com refresh tokens persistidos em Postgres, cobertura de testes e separação clara de camadas.
 
-This project implements a complete authentication flow using JWT, including user registration, login, protected routes and automated tests.
+## Stack 
 
-## 🚀 Features
+- Node.js 18+, Express 5
+- Prisma 7 + PostgreSQL
+- JWT (`jsonwebtoken`), bcryptjs
+- Jest + Supertest
 
-- User registration
-- Login with JWT authentication
-- Protected routes using middleware
-- Stateless authentication
-- Automated tests with Jest and Supertest
+## Diferenciais
 
-## 🛠️ Tech Stack
+- Refresh token persistido com unicidade garantida no banco.
+- Camadas explícitas: rotas → controllers → services → repositories.
+- Error handling centralizado com `AppError`.
+- Testes end-to-end cobrindo registro, login, refresh, logout e rotas protegidas.
+- Docker Compose para provisionar Postgres de desenvolvimento/teste.
 
-- Node.js
-- Express
-- JSON Web Token (JWT)
-- bcryptjs
-- Jest
-- Supertest
+## Decisões de arquitetura
 
-## 📦 Installation
+- JWT de acesso curto + refresh token armazenado: balanceia UX e revogação via banco.
+- Prisma com driver `pg` dedicado: pool controlado e logs de warning/error.
+- Controllers só validam payload e repassam erros ao middleware; serviços contêm regras de negócio.
+- `pretest` reseta DB e gera client, garantindo ambiente reproduzível em CI.
 
+## Pré-requisitos
+
+- Docker + Docker Compose
+- Node 18+ e npm
+
+## Setup rápido
+
+```bash
+docker-compose up -d postgres
 npm install
-
-## ▶️ Running the project
-
+# opcional: npx prisma migrate reset --force && npx prisma generate
 npm run dev
+```
 
-## 🧪 Running tests
+Crie `.env` na raiz:
 
-npm test
+```env
+DATABASE_URL="postgresql://auth_user:auth_password@localhost:5432/auth_api"
+JWT_SECRET="super_secret_key"
+PORT=3000
+```
 
-## 🔐 API Endpoints
+Os testes usam `tests/.env.test` automaticamente.
 
-Authentication:
+## Testes
 
-- POST /auth/register
-- POST /auth/login
-- GET /auth/profile (protected)
+```bash
+npm test -- --runInBand
+```
 
-Users:
+O `pretest` roda `prisma migrate reset --force && prisma generate`, então o banco de teste fica sempre limpo.
 
-- GET /users/me (protected)
+## Endpoints principais
 
-## 📌 Notes
+- POST `/auth/register`
+- POST `/auth/login`
+- POST `/auth/refresh`
+- POST `/auth/logout`
+- GET `/auth/profile` (protegida)
+- GET `/users/me` (protegida)
 
-This project was built as a learning-focused backend authentication system, following good practices such as separation of concerns and automated testing.
+## Exemplos de uso
+
+Registro:
+
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John","email":"john@test.com","password":"123456"}'
+```
+
+Rota protegida:
+
+```bash
+curl http://localhost:3000/users/me \
+  -H "Authorization: Bearer <access_token>"
+```
+
+## Estrutura
+
+- `src/config` – JWT, Prisma
+- `src/controllers` – valida payload e mapeia para serviços
+- `src/services` – regras de negócio (auth)
+- `src/repositories` – Prisma
+- `src/middlewares` – auth, error handler
+- `tests` – e2e e unitários (Jest + Supertest)
+
+## Notas
+
+- Logs do Prisma limitados a `warn/error` para reduzir ruído.
+- `docker-compose` expõe Postgres em `localhost:5432`, compatível com as URLs de `.env` e `.env.test`.
