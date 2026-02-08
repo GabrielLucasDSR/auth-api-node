@@ -1,5 +1,7 @@
 # Auth API (Node.js + Express + Prisma)
 
+![CI](https://github.com/john-dalmolin/auth-api-node/actions/workflows/ci.yml/badge.svg)
+
 API de autenticação JWT com refresh tokens persistidos em Postgres, cobertura de testes e separação clara de camadas.
 
 ## Stack
@@ -14,6 +16,7 @@ API de autenticação JWT com refresh tokens persistidos em Postgres, cobertura 
 - Refresh token persistido com unicidade garantida no banco.
 - Camadas explícitas: rotas → controllers → services → repositories.
 - Error handling centralizado com `AppError`.
+- Rate limiting nas rotas de auth.
 - Testes end-to-end cobrindo registro, login, refresh, logout e rotas protegidas.
 - Docker Compose para provisionar Postgres de desenvolvimento/teste.
 
@@ -23,6 +26,7 @@ API de autenticação JWT com refresh tokens persistidos em Postgres, cobertura 
 - Prisma com driver `pg` dedicado: pool controlado e logs de warning/error.
 - Controllers só validam payload e repassam erros ao middleware; serviços contêm regras de negócio.
 - `pretest` reseta DB e gera client, garantindo ambiente reproduzível em CI.
+- `JWT_SECRET` validado no startup: sem segredo, o app falha rápido.
 
 ## Pré-requisitos
 
@@ -88,7 +92,7 @@ curl http://localhost:3000/users/me \
 - `src/controllers` – valida payload e mapeia para serviços
 - `src/services` – regras de negócio (auth)
 - `src/repositories` – Prisma
-- `src/middlewares` – auth, error handler
+- `src/middlewares` – auth, error handler, rate limit, correlation id, validate
 - `tests` – e2e e unitários (Jest + Supertest)
 
 ## Notas
