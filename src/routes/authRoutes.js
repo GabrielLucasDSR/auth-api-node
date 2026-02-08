@@ -22,7 +22,9 @@ router.post("/refresh", validate(refreshSchema), refresh);
 router.post("/logout", validate(logoutSchema), logout);
 
 router.get("/profile", authMiddleware, (req, res) => {
+  req.log.info({ userId: req.userId }, "profile fetched");
   return res.json({ message: `User ${req.userId} authenticated` });
 });
+
 
 module.exports = router;

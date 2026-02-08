@@ -100,6 +100,6 @@ curl http://localhost:3000/users/me \
 
 - [X] Implementar `jti` + rotação e revogação de refresh tokens no Prisma.
 - [X] Validar payloads com Zod/Joi e unificar respostas de erro.
-- [ ] Adicionar logs estruturados (pino) e correlation id via middleware.
+- [X] Adicionar logs estruturados (pino) e correlation id via middleware.
 - [ ] Configurar CI (GitHub Actions) com docker-compose, testes e lint.
 - [ ] Cobrir services com testes unitários para cenários de erro e borda.
