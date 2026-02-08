@@ -15,6 +15,9 @@ app.use("/auth", authRoutes);
 const userRoutes = require("./routes/userRoutes");
 app.use("/users", userRoutes);
 
+const healthRoutes = require("./routes/healthRoutes");
+app.use("/", healthRoutes);
+
 const errorHandler = require("./middlewares/errorHandler");
 app.use(errorHandler);
 
