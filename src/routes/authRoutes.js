@@ -1,10 +1,5 @@
 const express = require("express");
-const {
-  register,
-  login,
-  refresh,
-  logout,
-} = require("../controllers/authController");
+const { register, login, refresh, logout } = require("../controllers/authController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validate");
 const {
@@ -26,6 +21,5 @@ router.get("/profile", authMiddleware, (req, res) => {
   req.log.info({ userId: req.userId }, "profile fetched");
   return res.json({ message: `User ${req.userId} authenticated` });
 });
-
 
 module.exports = router;

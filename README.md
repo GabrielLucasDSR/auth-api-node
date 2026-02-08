@@ -109,8 +109,8 @@ curl http://localhost:3000/users/me \
 - [X] Adicionar logs estruturados (pino) e correlation id via middleware.
 - [X] Configurar CI (GitHub Actions) com PostgreSQL e testes.
 - [X] Cobrir `AuthService` com testes unitários para cenários de erro e borda.
-- [ ] Adicionar lint e format (`eslint` + `prettier`) com checagem na CI.
-- [ ] Criar endpoints `/health` e `/ready` com verificação de banco.
+- [X] Adicionar lint e format (`eslint` + `prettier`) com checagem na CI.
+- [X] Criar endpoints `/health` e `/ready` com verificação de banco.
 - [ ] Publicar documentação OpenAPI/Swagger dos endpoints.
 - [ ] Persistir refresh token com hash no banco (evitar token em texto puro).
 - [ ] Migrar rate limit para store distribuído (Redis) visando escala horizontal.

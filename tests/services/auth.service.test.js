@@ -1,6 +1,5 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const AppError = require("../../src/errors/AppError");
 const userRepository = require("../../src/repositories/userRepository");
 const refreshTokenRepository = require("../../src/repositories/refreshTokenRepository");
 
@@ -114,9 +113,7 @@ describe("AuthService (unit)", () => {
         password: "hashed",
       });
       bcrypt.compare.mockResolvedValue(true);
-      jwt.sign
-        .mockReturnValueOnce("access-token")
-        .mockReturnValueOnce("refresh-token");
+      jwt.sign.mockReturnValueOnce("access-token").mockReturnValueOnce("refresh-token");
       refreshTokenRepository.create.mockResolvedValue({ id: "rt-1" });
 
       const result = await authService.login({
@@ -195,9 +192,7 @@ describe("AuthService (unit)", () => {
         expiresAt: new Date(Date.now() + 60_000),
       });
       jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
-      jwt.sign
-        .mockReturnValueOnce("new-access")
-        .mockReturnValueOnce("new-refresh");
+      jwt.sign.mockReturnValueOnce("new-access").mockReturnValueOnce("new-refresh");
 
       const result = await authService.refreshToken("old-rt");
 

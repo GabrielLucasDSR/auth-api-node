@@ -4,7 +4,7 @@ const { randomUUID } = require("crypto");
 const authConfig = require("../config/auth");
 const userRepository = require("../repositories/userRepository");
 const refreshTokenRepository = require("../repositories/refreshTokenRepository");
-const AppError = require("../errors/AppError"); 
+const AppError = require("../errors/AppError");
 
 const HASH_ROUNDS = 8;
 const ACCESS_TOKEN_EXPIRES_IN = authConfig.jwt.expiresIn;
@@ -58,11 +58,9 @@ class AuthService {
 
     // Refresh token com jti único para permitir rotação e revogação
     const refreshJti = randomUUID();
-    const refreshToken = jwt.sign(
-      { id: user.id, jti: refreshJti },
-      authConfig.jwt.secret,
-      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
-    );
+    const refreshToken = jwt.sign({ id: user.id, jti: refreshJti }, authConfig.jwt.secret, {
+      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+    });
 
     await refreshTokenRepository.create({
       token: refreshToken,
