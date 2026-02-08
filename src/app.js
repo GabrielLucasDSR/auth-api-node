@@ -4,6 +4,9 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 
+const docsRoutes = require("./routes/docsRoutes");
+app.use("/", docsRoutes);
+
 const requestId = require("./middlewares/requestId");
 const loggerMiddleware = require("./middlewares/logger");
 app.use(requestId);
