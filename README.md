@@ -2,50 +2,94 @@
 
 ![CI](https://github.com/john-dalmolin/auth-api-node/actions/workflows/ci.yml/badge.svg)
 
-API de autenticação JWT com refresh tokens persistidos em Postgres, cobertura de testes e separação clara de camadas.
+API de autenticação com foco em qualidade de engenharia para ambiente real: arquitetura em camadas, observabilidade, documentação OpenAPI, testes automatizados e pipeline de CI com banco real.
+
+## Resumo
+
+Este projeto implementa autenticação baseada em JWT com refresh token persistido no PostgreSQL, separando responsabilidades por camada (`routes -> controllers -> services -> repositories`).
+
+O objetivo é manter uma base pronta para evolução, priorizando:
+
+- legibilidade e manutenibilidade;
+- previsibilidade de erro;
+- segurança de sessão;
+- cobertura de testes e automação.
 
 ## Stack
 
-- Node.js 18+, Express 5
+- Node.js 18+
+- Express 5
 - Prisma 7 + PostgreSQL
-- JWT (`jsonwebtoken`), bcryptjs
+- JWT (`jsonwebtoken`) + `bcryptjs`
+- Zod (validação de payload)
+- Pino (logging estruturado)
 - Jest + Supertest
+- Swagger UI + swagger-jsdoc
 
-## Diferenciais
+## Arquitetura
 
-- Refresh token persistido com unicidade garantida no banco.
-- Camadas explícitas: rotas → controllers → services → repositories.
-- Error handling centralizado com `AppError`.
-- Rate limiting nas rotas de auth.
-- Logs estruturados com correlation id por requisição.
-- Testes em múltiplas camadas: e2e, middleware, repository e service.
-- CI no GitHub Actions com PostgreSQL real e execução de testes.
-- Docker Compose para provisionar Postgres de desenvolvimento/teste.
-- Documentação OpenAPI com Swagger UI (`/docs`) e spec JSON (`/docs.json`).
+### Camadas
 
-## Decisões de arquitetura
+- `routes`: define endpoints e composição de middlewares.
+- `controllers`: valida entrada e delega regra de negócio.
+- `services`: concentra regras de domínio de autenticação.
+- `repositories`: encapsula acesso ao Prisma/Postgres.
 
-- JWT de acesso curto + refresh token armazenado: balanceia UX e revogação via banco.
-- Prisma com driver `pg` dedicado: pool controlado e logs de warning/error.
-- Controllers só validam payload e repassam erros ao middleware; serviços contêm regras de negócio.
-- `pretest` reseta DB e gera client, garantindo ambiente reproduzível em CI.
-- `JWT_SECRET` validado no startup: sem segredo, o app falha rápido.
+### Middlewares principais
+
+- `authMiddleware`: valida access token.
+- `validate`: aplica schemas Zod e padroniza resposta de erro de payload.
+- `errorHandler`: centraliza mapeamento de erros de domínio/infra.
+- `requestId` + `logger`: correlação e rastreabilidade por requisição.
+- `rateLimiter`: proteção inicial para endpoints de auth.
+
+## Fluxo de autenticação
+
+1. `POST /auth/register` cria usuário com senha hasheada.
+2. `POST /auth/login` valida credenciais e emite `accessToken` + `refreshToken`.
+3. `POST /auth/refresh` valida token de refresh e rotaciona sessão.
+4. `POST /auth/logout` revoga refresh token ativo.
+5. Rotas protegidas (`/auth/profile`, `/users/me`) aceitam apenas access token válido.
+
+## Segurança e qualidade
+
+### Implementado
+
+- [x] Segredo JWT validado no startup (falha rápida).
+- [x] Refresh token com `jti` único para rotação/revogação.
+- [x] Tratamento de erro unificado com `AppError`.
+- [x] Validação de payload com Zod.
+- [x] Rate limiting nas rotas de autenticação.
+- [x] Testes automatizados em múltiplas camadas.
+- [x] CI com execução de testes e cobertura mínima.
+- [x] Lint (`eslint`) e formatação (`prettier`) padronizados.
+
+### Em andamento
+
+- [ ] Persistência de refresh token como hash (`tokenHash`) em vez de texto puro.
+- [ ] Alinhamento final de todos os testes ao novo contrato de hash-at-rest.
+
+### Próximos passos
+
+- [ ] Resolver warning de open handles no Jest (`--detectOpenHandles`).
+- [ ] Migrar rate limiting para Redis (cenário de múltiplas instâncias).
+- [ ] Aumentar cobertura de branches em fluxos de erro críticos.
 
 ## Pré-requisitos
 
 - Docker + Docker Compose
-- Node 18+ e npm
+- Node.js 18+
+- npm
 
-## Setup rápido
+## Setup local
 
 ```bash
 docker-compose up -d postgres
 npm install
-# opcional: npx prisma migrate reset --force && npx prisma generate
 npm run dev
 ```
 
-Crie `.env` na raiz:
+Crie o arquivo `.env` na raiz:
 
 ```env
 DATABASE_URL="postgresql://auth_user:auth_password@localhost:5432/auth_api"
@@ -53,37 +97,62 @@ JWT_SECRET="super_secret_key"
 PORT=3000
 ```
 
-Os testes usam `tests/.env.test` automaticamente.
+Para testes, o projeto usa `tests/.env.test`.
 
-## Testes
+## Scripts úteis
 
-```bash
-npm test -- --runInBand
-```
+- `npm run dev`: sobe a API com `nodemon`.
+- `npm run start`: inicia em modo produção.
+- `npm run lint`: valida padrão de código.
+- `npm run lint:fix`: corrige problemas de lint automaticamente.
+- `npm run format`: verifica formatação.
+- `npm run format:write`: aplica formatação.
+- `npm test -- --runInBand`: roda suíte completa.
+- `npm run test:coverage`: roda suíte com cobertura.
 
-O `pretest` roda `prisma migrate reset --force && prisma generate`, então o banco de teste fica sempre limpo.
+## Testes e cobertura
 
-## Endpoints principais
+A suíte inclui:
 
-- POST `/auth/register`
-- POST `/auth/login`
-- POST `/auth/refresh`
-- POST `/auth/logout`
-- GET `/auth/profile` (protegida)
-- GET `/users/me` (protegida)
-- GET `/health` (liveness)
-- GET `/ready` (readiness com checagem de banco)
-- GET `/docs` (Swagger UI)
-- GET `/docs.json` (OpenAPI spec)
+- testes e2e de autenticação e rotas protegidas;
+- testes de middleware de autenticação;
+- testes de repositório de refresh token;
+- testes unitários de `AuthService`.
 
-## Exemplos de uso
+Notas importantes:
 
-Registro:
+- `pretest` e `pretest:coverage` executam `prisma migrate reset --force && prisma generate` para garantir ambiente reproduzível.
+- A CI aplica `coverageThreshold` global para evitar regressão silenciosa.
+
+## Endpoints
+
+- `POST /auth/register`: cria usuário.
+- `POST /auth/login`: autentica e retorna tokens.
+- `POST /auth/refresh`: renova sessão.
+- `POST /auth/logout`: revoga refresh token.
+- `GET /auth/profile`: rota protegida de perfil.
+- `GET /users/me`: rota protegida de usuário autenticado.
+- `GET /health`: liveness.
+- `GET /ready`: readiness com verificação de banco.
+- `GET /docs`: Swagger UI.
+- `GET /docs.json`: OpenAPI em JSON.
+
+## Validação manual (curl)
+
+Registrar usuário:
 
 ```bash
 curl -X POST http://localhost:3000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name":"John","email":"john@test.com","password":"123456"}'
+```
+
+Login:
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john@test.com","password":"123456"}'
 ```
 
 Rota protegida:
@@ -93,30 +162,69 @@ curl http://localhost:3000/users/me \
   -H "Authorization: Bearer <access_token>"
 ```
 
-## Estrutura
+## Estrutura de pastas
 
-- `src/config` – JWT, Prisma
-- `src/controllers` – valida payload e mapeia para serviços
-- `src/services` – regras de negócio (auth)
-- `src/repositories` – Prisma
-- `src/middlewares` – auth, error handler, rate limit, correlation id, validate
-- `tests` – e2e e unitários (Jest + Supertest)
+```txt
+src/
+- app.js
+- server.js
+- logger.js
+- config/
+- controllers/
+- docs/
+- errors/
+- middlewares/
+- repositories/
+- routes/
+- services/
+- validators/
 
-## Notas
+prisma/
+- schema.prisma
+- migrations/
 
-- Logs do Prisma limitados a `warn/error` para reduzir ruído.
-- `docker-compose` expõe Postgres em `localhost:5432`, compatível com as URLs de `.env` e `.env.test`.
+tests/
+- auth.e2e.test.js
+- health.e2e.test.js
+- middleware/
+- repositories/
+- services/
+- setup.js
+- jest.env.js
+```
 
-## Próximos passos
+## CI
 
-- [x] Implementar `jti` + rotação e revogação de refresh tokens no Prisma.
-- [x] Validar payloads com Zod e unificar respostas de erro.
-- [x] Adicionar logs estruturados (pino) e correlation id via middleware.
-- [x] Configurar CI (GitHub Actions) com PostgreSQL e testes.
-- [x] Cobrir `AuthService` com testes unitários para cenários de erro e borda.
-- [x] Adicionar lint e format (`eslint` + `prettier`) com checagem na CI.
-- [x] Criar endpoints `/health` e `/ready` com verificação de banco.
-- [x] Publicar documentação OpenAPI/Swagger dos endpoints.
-- [ ] Persistir refresh token com hash no banco (evitar token em texto puro).
-- [ ] Migrar rate limit para store distribuído (Redis) visando escala horizontal.
-- [x] Definir meta de cobertura na CI (ex.: `--coverage` com mínimo de 80%).
+Workflow em `.github/workflows/ci.yml`:
+
+- provisiona PostgreSQL no GitHub Actions;
+- instala dependências;
+- executa lint;
+- executa testes com cobertura;
+- falha o pipeline se thresholds mínimos não forem atendidos.
+
+## Decisões e trade-offs
+
+- Refresh token em banco aumenta controle de sessão, com custo de estado adicional.
+- Access token curto reduz impacto de comprometimento, com maior frequência de refresh.
+- Camadas explícitas aumentam legibilidade e testabilidade, com mais arquivos e disciplina arquitetural.
+- Reset de banco no pretest aumenta previsibilidade, com custo de tempo em execução local/CI.
+
+## Roadmap técnico
+
+### Segurança
+
+- Concluir hash-at-rest de refresh token.
+- Revogação por usuário/dispositivo.
+- Rotina de revisão de dependências e vulnerabilidades.
+
+### Confiabilidade
+
+- Eliminar open handles no Jest.
+- Cobrir cenários negativos e de erro de infra.
+- Refinar observabilidade de falhas críticas.
+
+### Escalabilidade
+
+- Evoluir rate limit para Redis.
+- Preparar comportamento para múltiplas instâncias.
