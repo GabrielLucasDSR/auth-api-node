@@ -51,6 +51,68 @@ O objetivo é manter uma base pronta para evolução, priorizando:
 4. `POST /auth/logout` revoga refresh token ativo.
 5. Rotas protegidas (`/auth/profile`, `/users/me`) aceitam apenas access token válido.
 
+## Diagramas de fluxo
+
+### Fluxo geral da requisição
+
+```mermaid
+flowchart TD
+    A["Client (App, Swagger, curl)"] --> B["Express App"]
+    B --> C["requestId middleware"]
+    C --> D["logger middleware"]
+    D --> E{"Route match"}
+
+    E -->|"/auth/*"| F["rateLimiter"]
+    F --> G["validate (Zod)"]
+    G --> H["authController"]
+    H --> I["authService"]
+    I --> J["Repositories"]
+    J --> K["Prisma Client"]
+    K --> L["PostgreSQL"]
+
+    E -->|"/auth/profile, /users/me"| M["authMiddleware (Bearer JWT)"]
+    M --> N["Protected handlers"]
+    N --> O["200 JSON response"]
+
+    E -->|"/health, /ready"| P["healthController"]
+    E -->|"/docs, /docs.json"| Q["docsRoutes (Swagger)"]
+
+    H -. "AppError / runtime error" .-> R["errorHandler middleware"]
+    I -. "AppError / runtime error" .-> R
+    R --> S["JSON error response"]
+```
+
+### Fluxo de autenticação e rotação de refresh token
+
+```mermaid
+sequenceDiagram
+    participant U as "User"
+    participant API as "Auth API"
+    participant SVC as "authService"
+    participant DB as "PostgreSQL (RefreshToken)"
+
+    U->>API: "POST /auth/login (email, password)"
+    API->>SVC: "login()"
+    SVC->>DB: "create(tokenHash, jti, userId, expiresAt)"
+    SVC-->>API: "accessToken + refreshToken"
+    API-->>U: "200 tokens"
+
+    U->>API: "POST /auth/refresh (refreshToken)"
+    API->>SVC: "refreshToken(token)"
+    SVC->>SVC: "jwt.verify + hashToken"
+    SVC->>DB: "findByJti(jti)"
+    SVC->>DB: "revokeByJti(oldJti)"
+    SVC->>DB: "create(newTokenHash, newJti, userId, expiresAt)"
+    SVC-->>API: "new accessToken + new refreshToken"
+    API-->>U: "200 rotated tokens"
+
+    U->>API: "POST /auth/logout (refreshToken)"
+    API->>SVC: "logout(token)"
+    SVC->>DB: "findByJti(jti)"
+    SVC->>DB: "revokeByJti(jti)"
+    API-->>U: "200 logged out"
+```
+
 ## Segurança e qualidade
 
 ### Implementado
