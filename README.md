@@ -25,6 +25,7 @@ O objetivo é manter uma base pronta para evolução, priorizando:
 - Pino (logging estruturado)
 - Jest + Supertest
 - Swagger UI + swagger-jsdoc
+- ioredis
 
 ## Arquitetura
 
@@ -117,25 +118,29 @@ sequenceDiagram
 
 ### Implementado
 
-- [x] Segredo JWT validado no startup (falha rápida).
-- [x] Refresh token com `jti` único para rotação/revogação.
-- [x] Tratamento de erro unificado com `AppError`.
-- [x] Validação de payload com Zod.
-- [x] Rate limiting nas rotas de autenticação.
-- [x] Testes automatizados em múltiplas camadas.
-- [x] CI com execução de testes e cobertura mínima.
-- [x] Lint (`eslint`) e formatação (`prettier`) padronizados.
+- [X] Segredo JWT validado no startup (falha rápida).
+- [X] Refresh token com `jti` único para rotação/revogação.
+- [X] Persistência de refresh token com hash (`tokenHash`) no banco.
+- [X] Tratamento de erro unificado com `AppError`.
+- [X] Validação de payload com Zod.
+- [X] Rate limiting nas rotas de autenticação (Redis com fallback em memória).
+- [X] Session management:
+- [X] `GET /auth/sessions`
+- [X] `POST /auth/logout-session`
+- [X] `POST /auth/logout-all`
+- [X] Testes automatizados em múltiplas camadas.
+- [X] CI com execução de testes e cobertura mínima.
+- [X] Lint (`eslint`) e formatação (`prettier`) padronizados.
 
 ### Em andamento
 
-- [ ] Persistência de refresh token como hash (`tokenHash`) em vez de texto puro.
-- [ ] Alinhamento final de todos os testes ao novo contrato de hash-at-rest.
+- [ ] Resolver warning de open handles no Jest (`--detectOpenHandles`).
 
 ### Próximos passos
 
-- [ ] Resolver warning de open handles no Jest (`--detectOpenHandles`).
-- [ ] Migrar rate limiting para Redis (cenário de múltiplas instâncias).
 - [ ] Aumentar cobertura de branches em fluxos de erro críticos.
+- [ ] Evoluir rate limiting para estratégia distribuída robusta em produção.
+- [ ] Refinar observabilidade de falhas críticas de autenticação/sessão.
 
 ## Pré-requisitos
 
@@ -146,7 +151,7 @@ sequenceDiagram
 ## Setup local
 
 ```bash
-docker-compose up -d postgres
+docker-compose up -d postgres redis
 npm install
 npm run dev
 ```
@@ -157,6 +162,9 @@ Crie o arquivo `.env` na raiz:
 DATABASE_URL="postgresql://auth_user:auth_password@localhost:5432/auth_api"
 JWT_SECRET="super_secret_key"
 PORT=3000
+REDIS_URL="redis://localhost:6379"
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
 ```
 
 Para testes, o projeto usa `tests/.env.test`.
@@ -198,6 +206,9 @@ Notas importantes:
 - `GET /ready`: readiness com verificação de banco.
 - `GET /docs`: Swagger UI.
 - `GET /docs.json`: OpenAPI em JSON.
+- `GET /auth/sessions`: listar sessões ativas do usuário autenticado.
+- `POST /auth/logout-session`: revogar uma sessão específica por `jti`.
+- `POST /auth/logout-all`: revogar todas as sessões do usuário autenticado.
 
 ## Validação manual (curl)
 
@@ -249,6 +260,7 @@ tests/
 - auth.e2e.test.js
 - health.e2e.test.js
 - middleware/
+- config/
 - repositories/
 - services/
 - setup.js
@@ -260,8 +272,7 @@ tests/
 Workflow em `.github/workflows/ci.yml`:
 
 - provisiona PostgreSQL no GitHub Actions;
-- instala dependências;
-- executa lint;
+- instala dependências.
 - executa testes com cobertura;
 - falha o pipeline se thresholds mínimos não forem atendidos.
 
@@ -276,7 +287,6 @@ Workflow em `.github/workflows/ci.yml`:
 
 ### Segurança
 
-- Concluir hash-at-rest de refresh token.
 - Revogação por usuário/dispositivo.
 - Rotina de revisão de dependências e vulnerabilidades.
 
@@ -288,5 +298,5 @@ Workflow em `.github/workflows/ci.yml`:
 
 ### Escalabilidade
 
-- Evoluir rate limit para Redis.
+- Evoluir rate limit Redis para operação distribuída avançada.
 - Preparar comportamento para múltiplas instâncias.

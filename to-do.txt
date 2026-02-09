@@ -1,34 +1,40 @@
-TODO - Auth API (portfolio roadmap)
+# Auth API - Technical Roadmap
 
-Concluido
-- Estrutura base da API com camadas separadas e servidor funcional.
-- Fluxo completo de autenticacao com JWT: register, login, refresh, logout.
-- Rotas protegidas com middleware de autenticacao.
-- Tratamento de erro centralizado com AppError e middleware global.
-- Validacao de payloads com Zod.
-- Logs estruturados com pino e correlation id por requisicao.
-- Rate limiting nas rotas de autenticacao.
-- Endpoints de liveness e readiness.
-- Documentacao OpenAPI com Swagger.
-- Testes automatizados em e2e, middleware, repository e service.
-- CI no GitHub Actions com Postgres e thresholds de cobertura.
-- Padronizacao de qualidade com ESLint e Prettier.
+## Done
 
-Em andamento
-- Migracao de refresh token em texto puro para hash-at-rest (`tokenHash`).
-- Alinhamento completo dos testes para o novo contrato (`findByJti`, `revokeByJti`, `tokenHash`).
+- [x] Layered architecture (routes -> controllers -> services -> repositories).
+- [x] JWT auth flow with access token + refresh token.
+- [x] Refresh token rotation with unique jti.
+- [x] Refresh token revocation (logout).
+- [x] Refresh token hash-at-rest (tokenHash) persisted in database.
+- [x] JWT_SECRET fail-fast validation at startup.
+- [x] Zod payload validation for auth routes.
+- [x] Centralized error handling with AppError pattern.
+- [x] Structured logging with correlation id.
+- [x] Health/readiness endpoints.
+- [x] Swagger/OpenAPI docs endpoint.
+- [x] Redis-backed rate limiting with safe in-memory fallback.
+- [x] Session management endpoints:
+- [x] GET /auth/sessions
+- [x] POST /auth/logout-session
+- [x] POST /auth/logout-all
+- [x] Unit + middleware + repository + e2e test suites.
+- [x] CI pipeline running lint + tests + coverage threshold.
 
-Proximos passos (alta prioridade)
-- Finalizar hardening de refresh token com hash e garantir testes verdes no coverage.
-- Eliminar warning de open handles no Jest com diagnostico via `--detectOpenHandles`.
-- Revisar coverage de branches em fluxos de erro e excecoes.
+## In Progress
 
-Proximos passos (media prioridade)
-- Migrar rate limit para Redis visando escala horizontal.
-- Incluir revogacao de sessao por usuario/dispositivo.
-- Melhorar padrao de resposta de erro para observabilidade operacional.
+- [ ] Investigate and eliminate intermittent Jest open handles warning.
 
-Proximos passos (portfolio)
-- Adicionar secao "Security decisions" no README com trade-offs.
-- Adicionar diagrama simples de arquitetura no README.
-- Registrar changelog tecnico por milestone para mostrar evolucao do projeto.
+## Next Priorities
+
+- [ ] Improve branch coverage on middleware/controller negative paths.
+- [ ] Harden auth/session security checks and edge-case validation.
+- [ ] Improve observability for auth/session critical failures.
+- [ ] Evaluate per-device/session metadata (ip, user-agent, createdAt) for better session UX.
+- [ ] Consider distributed rate-limit store hardening for multi-instance deployments.
+
+## Nice to Have
+
+- [ ] Add API versioning strategy.
+- [ ] Add smoke test script for production-like checks.
+- [ ] Add architecture decision records (ADRs) for key trade-offs.
