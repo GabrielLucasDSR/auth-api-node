@@ -119,4 +119,4 @@ curl http://localhost:3000/users/me \
 - [X] Publicar documentação OpenAPI/Swagger dos endpoints.
 - [ ] Persistir refresh token com hash no banco (evitar token em texto puro).
 - [ ] Migrar rate limit para store distribuído (Redis) visando escala horizontal.
-- [ ] Definir meta de cobertura na CI (ex.: `--coverage` com mínimo de 80%).
+- [X] Definir meta de cobertura na CI (ex.: `--coverage` com mínimo de 80%).
