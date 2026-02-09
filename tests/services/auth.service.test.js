@@ -25,6 +25,9 @@ jest.mock("../../src/repositories/refreshTokenRepository", () => ({
   create: jest.fn(),
   findByJti: jest.fn(),
   revokeByJti: jest.fn(),
+  findActiveByUserId: jest.fn(),
+  revokeByJtiAndUserId: jest.fn(),
+  revokeAllByUserId: jest.fn(),
 }));
 
 const authService = require("../../src/services/authService");
@@ -217,6 +220,57 @@ describe("AuthService (unit)", () => {
         refreshToken: "new-refresh",
       });
     });
+    it("throws INVALID_REFRESH_TOKEN when jwt.verify throws", async () => {
+      jwt.verify.mockImplementation(() => {
+        throw new Error("invalid token");
+      });
+
+      await expect(authService.refreshToken("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+
+    it("throws INVALID_REFRESH_TOKEN when decoded jti is missing", async () => {
+      jwt.verify.mockReturnValue({ id: 1 });
+
+      await expect(authService.refreshToken("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+
+    it("throws INVALID_REFRESH_TOKEN when stored token userId differs", async () => {
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
+        jti: "jti-1",
+        userId: 999,
+        revoked: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("rt"),
+      });
+
+      await expect(authService.refreshToken("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+
+    it("throws INVALID_REFRESH_TOKEN when stored token is expired", async () => {
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
+        jti: "jti-1",
+        userId: 1,
+        revoked: false,
+        expiresAt: new Date(Date.now() - 60_000),
+        tokenHash: hashToken("rt"),
+      });
+
+      await expect(authService.refreshToken("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
   });
 
   describe("logout", () => {
@@ -251,6 +305,80 @@ describe("AuthService (unit)", () => {
       await authService.logout("rt");
 
       expect(refreshTokenRepository.revokeByJti).toHaveBeenCalledWith("jti-1");
+    });
+    it("throws INVALID_REFRESH_TOKEN when jwt.verify throws", async () => {
+      jwt.verify.mockImplementation(() => {
+        throw new Error("invalid token");
+      });
+
+      await expect(authService.logout("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+
+    it("throws INVALID_REFRESH_TOKEN when decoded jti is missing", async () => {
+      jwt.verify.mockReturnValue({ id: 1 });
+
+      await expect(authService.logout("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+
+    it("throws INVALID_REFRESH_TOKEN when token hash does not match", async () => {
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
+        jti: "jti-1",
+        userId: 1,
+        revoked: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("another-token"),
+      });
+
+      await expect(authService.logout("rt")).rejects.toMatchObject({
+        statusCode: 401,
+        code: "INVALID_REFRESH_TOKEN",
+      });
+    });
+  });
+});
+
+describe("sessions", () => {
+  it("listSessions throws UNAUTHORIZED when userId is missing", async () => {
+    await expect(authService.listSessions()).rejects.toMatchObject({
+      statusCode: 401,
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("logoutSession throws UNAUTHORIZED when userId is missing", async () => {
+    await expect(authService.logoutSession({ jti: "jti-1" })).rejects.toMatchObject({
+      statusCode: 401,
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("logoutSession throws INVALID_PAYLOAD when jti is missing", async () => {
+    await expect(authService.logoutSession({ userId: 1 })).rejects.toMatchObject({
+      statusCode: 400,
+      code: "INVALID_PAYLOAD",
+    });
+  });
+
+  it("logoutSession throws SESSION_NOT_FOUND when repository returns count 0", async () => {
+    refreshTokenRepository.revokeByJtiAndUserId.mockResolvedValue({ count: 0 });
+
+    await expect(authService.logoutSession({ userId: 1, jti: "jti-1" })).rejects.toMatchObject({
+      statusCode: 404,
+      code: "SESSION_NOT_FOUND",
+    });
+  });
+
+  it("logoutAll throws UNAUTHORIZED when userId is missing", async () => {
+    await expect(authService.logoutAll()).rejects.toMatchObject({
+      statusCode: 401,
+      code: "UNAUTHORIZED",
     });
   });
 });
