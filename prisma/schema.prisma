@@ -17,7 +17,7 @@ model User {
 
 model RefreshToken {
   id        String   @id @default(uuid())
-  token     String   @unique
+  tokenHash     String   @unique
   jti       String   @unique
   userId    Int
   revoked   Boolean  @default(false)

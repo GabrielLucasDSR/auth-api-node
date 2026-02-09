@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { randomUUID } = require("crypto");
+const { randomUUID, createHash, timingSafeEqual } = require("crypto");
 const authConfig = require("../config/auth");
 const userRepository = require("../repositories/userRepository");
 const refreshTokenRepository = require("../repositories/refreshTokenRepository");
@@ -11,12 +11,25 @@ const ACCESS_TOKEN_EXPIRES_IN = authConfig.jwt.expiresIn;
 const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
 /**
- * Service de autenticação
+ * Service de autenticacao
  * - Normaliza email
  * - Gera access/refresh tokens
- * - Mantém refresh tokens versionados e revogáveis no banco
+ * - Mantem refresh tokens versionados e revogaveis no banco
  */
 const normalizeEmail = (email) => email.trim().toLowerCase();
+
+const hashToken = (token) => createHash("sha256").update(token).digest("hex");
+
+const isSameHash = (a, b) => {
+  const aBuf = Buffer.from(a, "hex");
+  const bBuf = Buffer.from(b, "hex");
+
+  if (aBuf.length !== bBuf.length) {
+    return false;
+  }
+
+  return timingSafeEqual(aBuf, bBuf);
+};
 
 class AuthService {
   async register({ name, email, password }) {
@@ -56,14 +69,13 @@ class AuthService {
       expiresIn: ACCESS_TOKEN_EXPIRES_IN,
     });
 
-    // Refresh token com jti único para permitir rotação e revogação
     const refreshJti = randomUUID();
     const refreshToken = jwt.sign({ id: user.id, jti: refreshJti }, authConfig.jwt.secret, {
       expiresIn: REFRESH_TOKEN_EXPIRES_IN,
     });
 
     await refreshTokenRepository.create({
-      token: refreshToken,
+      tokenHash: hashToken(refreshToken),
       jti: refreshJti,
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -77,11 +89,6 @@ class AuthService {
       throw new AppError("invalid refresh token", 400, "INVALID_REFRESH_TOKEN");
     }
 
-    const storedToken = await refreshTokenRepository.findByToken(token);
-    if (!storedToken) {
-      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
-    }
-
     let decoded;
     try {
       decoded = jwt.verify(token, authConfig.jwt.secret);
@@ -89,16 +96,33 @@ class AuthService {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
     }
 
-    // Garante que o estado no banco prevalece sobre o JWT assinado
-    if (storedToken.revoked)
+    if (!decoded.jti) {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
-    if (storedToken.expiresAt <= new Date())
-      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
-    if (decoded.jti !== storedToken.jti)
-      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
 
-    // Rotação: revoga o usado e emite novo par
-    await refreshTokenRepository.revoke(token);
+    const storedToken = await refreshTokenRepository.findByJti(decoded.jti);
+    if (!storedToken) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    if (storedToken.userId !== decoded.id) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    if (storedToken.revoked) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    if (storedToken.expiresAt <= new Date()) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    const incomingTokenHash = hashToken(token);
+    if (!isSameHash(incomingTokenHash, storedToken.tokenHash)) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    await refreshTokenRepository.revokeByJti(decoded.jti);
 
     const newAccessToken = jwt.sign({ id: decoded.id }, authConfig.jwt.secret, {
       expiresIn: ACCESS_TOKEN_EXPIRES_IN,
@@ -112,7 +136,7 @@ class AuthService {
     );
 
     await refreshTokenRepository.create({
-      token: newRefreshToken,
+      tokenHash: hashToken(newRefreshToken),
       jti: newRefreshJti,
       userId: decoded.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -126,13 +150,28 @@ class AuthService {
       throw new AppError("invalid refresh token", 400, "INVALID_REFRESH_TOKEN");
     }
 
-    const storedToken = await refreshTokenRepository.findByToken(token);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, authConfig.jwt.secret);
+    } catch {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    if (!decoded.jti) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    const storedToken = await refreshTokenRepository.findByJti(decoded.jti);
     if (!storedToken) {
       throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
     }
 
-    // Revoga o refresh token para impedir reuso
-    await refreshTokenRepository.revoke(token);
+    const incomingTokenHash = hashToken(token);
+    if (!isSameHash(incomingTokenHash, storedToken.tokenHash)) {
+      throw new AppError("invalid refresh token", 401, "INVALID_REFRESH_TOKEN");
+    }
+
+    await refreshTokenRepository.revokeByJti(decoded.jti);
   }
 }
 

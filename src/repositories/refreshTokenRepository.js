@@ -1,19 +1,21 @@
 const prisma = require("../config/prisma");
 
 class RefreshTokenRepository {
-  async create({ token, jti, userId, expiresAt }) {
+  async create({ tokenHash, jti, userId, expiresAt }) {
     return prisma.refreshToken.create({
-      data: { token, jti, userId, expiresAt },
+      data: { tokenHash, jti, userId, expiresAt },
     });
   }
 
-  async findByToken(token) {
-    return prisma.refreshToken.findUnique({ where: { token } });
+  async findByJti(jti) {
+    return prisma.refreshToken.findUnique({
+      where: { jti },
+    });
   }
 
-  async revoke(token) {
+  async revokeByJti(jti) {
     return prisma.refreshToken.updateMany({
-      where: { token },
+      where: { jti },
       data: { revoked: true },
     });
   }
