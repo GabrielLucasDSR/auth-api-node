@@ -109,14 +109,14 @@ curl http://localhost:3000/users/me \
 
 ## Próximos passos
 
-- [X] Implementar `jti` + rotação e revogação de refresh tokens no Prisma.
-- [X] Validar payloads com Zod e unificar respostas de erro.
-- [X] Adicionar logs estruturados (pino) e correlation id via middleware.
-- [X] Configurar CI (GitHub Actions) com PostgreSQL e testes.
-- [X] Cobrir `AuthService` com testes unitários para cenários de erro e borda.
-- [X] Adicionar lint e format (`eslint` + `prettier`) com checagem na CI.
-- [X] Criar endpoints `/health` e `/ready` com verificação de banco.
-- [X] Publicar documentação OpenAPI/Swagger dos endpoints.
+- [x] Implementar `jti` + rotação e revogação de refresh tokens no Prisma.
+- [x] Validar payloads com Zod e unificar respostas de erro.
+- [x] Adicionar logs estruturados (pino) e correlation id via middleware.
+- [x] Configurar CI (GitHub Actions) com PostgreSQL e testes.
+- [x] Cobrir `AuthService` com testes unitários para cenários de erro e borda.
+- [x] Adicionar lint e format (`eslint` + `prettier`) com checagem na CI.
+- [x] Criar endpoints `/health` e `/ready` com verificação de banco.
+- [x] Publicar documentação OpenAPI/Swagger dos endpoints.
 - [ ] Persistir refresh token com hash no banco (evitar token em texto puro).
 - [ ] Migrar rate limit para store distribuído (Redis) visando escala horizontal.
-- [X] Definir meta de cobertura na CI (ex.: `--coverage` com mínimo de 80%).
+- [x] Definir meta de cobertura na CI (ex.: `--coverage` com mínimo de 80%).

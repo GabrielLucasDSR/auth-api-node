@@ -1,7 +1,10 @@
+const { createHash } = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userRepository = require("../../src/repositories/userRepository");
 const refreshTokenRepository = require("../../src/repositories/refreshTokenRepository");
+
+const hashToken = (token) => createHash("sha256").update(token).digest("hex");
 
 jest.mock("bcryptjs", () => ({
   hash: jest.fn(),
@@ -20,8 +23,8 @@ jest.mock("../../src/repositories/userRepository", () => ({
 
 jest.mock("../../src/repositories/refreshTokenRepository", () => ({
   create: jest.fn(),
-  findByToken: jest.fn(),
-  revoke: jest.fn(),
+  findByJti: jest.fn(),
+  revokeByJti: jest.fn(),
 }));
 
 const authService = require("../../src/services/authService");
@@ -106,7 +109,7 @@ describe("AuthService (unit)", () => {
       });
     });
 
-    it("returns access and refresh tokens and persists refresh token", async () => {
+    it("returns access and refresh tokens and persists refresh token hash", async () => {
       userRepository.findByEmail.mockResolvedValue({
         id: 1,
         email: "john@test.com",
@@ -128,7 +131,7 @@ describe("AuthService (unit)", () => {
 
       expect(refreshTokenRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          token: "refresh-token",
+          tokenHash: hashToken("refresh-token"),
           jti: expect.any(String),
           userId: 1,
           expiresAt: expect.any(Date),
@@ -146,7 +149,8 @@ describe("AuthService (unit)", () => {
     });
 
     it("throws INVALID_REFRESH_TOKEN when token does not exist in DB", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue(null);
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue(null);
 
       await expect(authService.refreshToken("rt")).rejects.toMatchObject({
         statusCode: 401,
@@ -155,13 +159,14 @@ describe("AuthService (unit)", () => {
     });
 
     it("throws INVALID_REFRESH_TOKEN when token is revoked", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue({
-        token: "rt",
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
         jti: "jti-1",
+        userId: 1,
         revoked: true,
         expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("rt"),
       });
-      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
 
       await expect(authService.refreshToken("rt")).rejects.toMatchObject({
         statusCode: 401,
@@ -169,14 +174,15 @@ describe("AuthService (unit)", () => {
       });
     });
 
-    it("throws INVALID_REFRESH_TOKEN when jti does not match", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue({
-        token: "rt",
-        jti: "jti-db",
+    it("throws INVALID_REFRESH_TOKEN when token hash does not match", async () => {
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
+        jti: "jti-1",
+        userId: 1,
         revoked: false,
         expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("different-token"),
       });
-      jwt.verify.mockReturnValue({ id: 1, jti: "jti-jwt" });
 
       await expect(authService.refreshToken("rt")).rejects.toMatchObject({
         statusCode: 401,
@@ -185,21 +191,22 @@ describe("AuthService (unit)", () => {
     });
 
     it("rotates refresh token and returns new token pair", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue({
-        token: "old-rt",
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
         jti: "jti-1",
+        userId: 1,
         revoked: false,
         expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("old-rt"),
       });
-      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
       jwt.sign.mockReturnValueOnce("new-access").mockReturnValueOnce("new-refresh");
 
       const result = await authService.refreshToken("old-rt");
 
-      expect(refreshTokenRepository.revoke).toHaveBeenCalledWith("old-rt");
+      expect(refreshTokenRepository.revokeByJti).toHaveBeenCalledWith("jti-1");
       expect(refreshTokenRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          token: "new-refresh",
+          tokenHash: hashToken("new-refresh"),
           jti: expect.any(String),
           userId: 1,
           expiresAt: expect.any(Date),
@@ -221,7 +228,8 @@ describe("AuthService (unit)", () => {
     });
 
     it("throws INVALID_REFRESH_TOKEN when token does not exist", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue(null);
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue(null);
 
       await expect(authService.logout("rt")).rejects.toMatchObject({
         statusCode: 401,
@@ -230,12 +238,19 @@ describe("AuthService (unit)", () => {
     });
 
     it("revokes token when token exists", async () => {
-      refreshTokenRepository.findByToken.mockResolvedValue({ token: "rt" });
-      refreshTokenRepository.revoke.mockResolvedValue({ count: 1 });
+      jwt.verify.mockReturnValue({ id: 1, jti: "jti-1" });
+      refreshTokenRepository.findByJti.mockResolvedValue({
+        jti: "jti-1",
+        userId: 1,
+        revoked: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashToken("rt"),
+      });
+      refreshTokenRepository.revokeByJti.mockResolvedValue({ count: 1 });
 
       await authService.logout("rt");
 
-      expect(refreshTokenRepository.revoke).toHaveBeenCalledWith("rt");
+      expect(refreshTokenRepository.revokeByJti).toHaveBeenCalledWith("jti-1");
     });
   });
 });
