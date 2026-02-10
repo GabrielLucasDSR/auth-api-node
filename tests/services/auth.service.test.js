@@ -1,42 +1,34 @@
 const { createHash } = require("node:crypto");
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userRepository = require("../../src/repositories/userRepository");
 const refreshTokenRepository = require("../../src/repositories/refreshTokenRepository");
+const authService = require("../../src/services/authService");
 
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
 
-jest.mock("bcryptjs", () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
-}));
+bcrypt.hash = vi.fn();
+bcrypt.compare = vi.fn();
 
-jest.mock("jsonwebtoken", () => ({
-  sign: jest.fn(),
-  verify: jest.fn(),
-}));
+jwt.sign = vi.fn();
+jwt.verify = vi.fn();
 
-jest.mock("../../src/repositories/userRepository", () => ({
-  findByEmail: jest.fn(),
-  create: jest.fn(),
-}));
+userRepository.findByEmail = vi.fn();
+userRepository.create = vi.fn();
 
-jest.mock("../../src/repositories/refreshTokenRepository", () => ({
-  create: jest.fn(),
-  findByJti: jest.fn(),
-  revokeByJti: jest.fn(),
-  findActiveByUserId: jest.fn(),
-  revokeByJtiAndUserId: jest.fn(),
-  revokeAllByUserId: jest.fn(),
-}));
+refreshTokenRepository.create = vi.fn();
+refreshTokenRepository.findByJti = vi.fn();
+refreshTokenRepository.revokeByJti = vi.fn();
+refreshTokenRepository.findActiveByUserId = vi.fn();
+refreshTokenRepository.revokeByJtiAndUserId = vi.fn();
+refreshTokenRepository.revokeAllByUserId = vi.fn();
 
-const authService = require("../../src/services/authService");
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("AuthService (unit)", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   describe("register", () => {
     it("throws USER_ALREADY_EXISTS when email already exists", async () => {
       userRepository.findByEmail.mockResolvedValue({ id: 1 });

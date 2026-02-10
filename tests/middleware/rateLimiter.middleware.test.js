@@ -1,38 +1,81 @@
 const mockReq = (ip = "127.0.0.1") => ({ ip });
 const mockRes = () => ({});
-const mockNext = () => jest.fn();
+const mockNext = () => vi.fn();
+
+const RATE_LIMITER_PATH = require.resolve("../../src/middlewares/rateLimiter");
+const REDIS_CONFIG_PATH = require.resolve("../../src/config/redis");
+
+const loadRateLimiter = ({ resetRedis = false } = {}) => {
+  if (resetRedis) {
+    delete require.cache[REDIS_CONFIG_PATH];
+  }
+  delete require.cache[RATE_LIMITER_PATH];
+  return require("../../src/middlewares/rateLimiter");
+};
+
+const loadRedisConfig = () => require("../../src/config/redis");
+
+const waitForRedisReady = async (redisClient) => {
+  if (!redisClient) throw new Error("redisClient não inicializado");
+  if (redisClient.status === "ready") return;
+
+  await new Promise((resolve, reject) => {
+    const onReady = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err) => {
+      cleanup();
+      reject(err);
+    };
+    const cleanup = () => {
+      redisClient.off("ready", onReady);
+      redisClient.off("error", onError);
+    };
+
+    redisClient.once("ready", onReady);
+    redisClient.once("error", onError);
+  });
+};
 
 describe("rateLimiter middleware", () => {
+  const originalRedisUrl = process.env.REDIS_URL;
+
   beforeEach(() => {
-    jest.resetModules();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+
     process.env.RATE_LIMIT_WINDOW_MS = "60000";
     process.env.RATE_LIMIT_MAX_REQUESTS = "2";
   });
 
-  it("allows request with memory strategy when redis is disabled", async () => {
-    jest.doMock("../../src/config/redis", () => ({
-      redisEnabled: false,
-      redisClient: null,
-    }));
+  afterEach(async () => {
+    const redisModule = require.cache[REDIS_CONFIG_PATH]?.exports;
+    if (redisModule?.closeRedisConnection) {
+      await redisModule.closeRedisConnection();
+    }
+  });
 
-    const rateLimiter = require("../../src/middlewares/rateLimiter");
+  afterAll(() => {
+    process.env.REDIS_URL = originalRedisUrl;
+  });
+
+  it("allows request with memory strategy when redis is disabled", async () => {
+    process.env.REDIS_URL = "";
+    const rateLimiter = loadRateLimiter({ resetRedis: true });
     const next = mockNext();
 
-    await rateLimiter(mockReq(), mockRes(), next);
+    await rateLimiter(mockReq("10.10.0.1"), mockRes(), next);
 
     expect(next).toHaveBeenCalledWith();
   });
 
   it("blocks request when memory strategy exceeds limit", async () => {
+    process.env.REDIS_URL = "";
     process.env.RATE_LIMIT_MAX_REQUESTS = "1";
 
-    jest.doMock("../../src/config/redis", () => ({
-      redisEnabled: false,
-      redisClient: null,
-    }));
-
-    const rateLimiter = require("../../src/middlewares/rateLimiter");
-    const req = mockReq("10.0.0.1");
+    const rateLimiter = loadRateLimiter({ resetRedis: true });
+    const req = mockReq("10.10.0.2");
     const next1 = mockNext();
     const next2 = mockNext();
 
@@ -48,36 +91,35 @@ describe("rateLimiter middleware", () => {
   });
 
   it("uses redis strategy and sets expiration on first hit", async () => {
-    const incr = jest.fn().mockResolvedValue(1);
-    const pexpire = jest.fn().mockResolvedValue(1);
+    process.env.REDIS_URL = originalRedisUrl || "redis://localhost:6379";
 
-    jest.doMock("../../src/config/redis", () => ({
-      redisEnabled: true,
-      redisClient: { incr, pexpire },
-    }));
+    const rateLimiter = loadRateLimiter({ resetRedis: true });
+    const { redisClient } = loadRedisConfig();
 
-    const rateLimiter = require("../../src/middlewares/rateLimiter");
+    const ip = `10.10.0.3-${Date.now()}`;
+    const key = `rl:${ip}`;
     const next = mockNext();
 
-    await rateLimiter(mockReq("10.0.0.2"), mockRes(), next);
+    await waitForRedisReady(redisClient);
+    await rateLimiter(mockReq(ip), mockRes(), next);
 
-    expect(incr).toHaveBeenCalled();
-    expect(pexpire).toHaveBeenCalled();
+    const count = await redisClient.get(key);
+    const ttl = await redisClient.pttl(key);
+
+    expect(count).toBe("1");
+    expect(ttl).toBeGreaterThan(0);
     expect(next).toHaveBeenCalledWith();
   });
 
   it("falls back to memory when redis throws and still allows within limit", async () => {
-    const incr = jest.fn().mockRejectedValue(new Error("redis down"));
+    process.env.REDIS_URL = originalRedisUrl || "redis://localhost:6379";
 
-    jest.doMock("../../src/config/redis", () => ({
-      redisEnabled: true,
-      redisClient: { incr, pexpire: jest.fn() },
-    }));
-
-    const rateLimiter = require("../../src/middlewares/rateLimiter");
+    const rateLimiter = loadRateLimiter({ resetRedis: true });
+    const { redisClient } = loadRedisConfig();
+    vi.spyOn(redisClient, "incr").mockRejectedValue(new Error("redis down"));
     const next = mockNext();
 
-    await rateLimiter(mockReq("10.0.0.3"), mockRes(), next);
+    await rateLimiter(mockReq("10.10.0.4"), mockRes(), next);
 
     expect(next).toHaveBeenCalledWith();
   });

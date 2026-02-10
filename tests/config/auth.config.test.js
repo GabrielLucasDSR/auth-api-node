@@ -1,9 +1,11 @@
 describe("auth config", () => {
   const originalEnv = process.env;
+  const authConfigPath = require.resolve("../../src/config/auth");
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     process.env = { ...originalEnv };
+    delete require.cache[authConfigPath];
   });
 
   afterAll(() => {
@@ -14,19 +16,14 @@ describe("auth config", () => {
     delete process.env.JWT_SECRET;
 
     expect(() => {
-      jest.isolateModules(() => {
-        require("../../src/config/auth");
-      });
+      require(authConfigPath);
     }).toThrow("JWT_SECRET is required");
   });
 
   it("loads config when JWT_SECRET is present", () => {
     process.env.JWT_SECRET = "test-secret";
 
-    let authConfig;
-    jest.isolateModules(() => {
-      authConfig = require("../../src/config/auth");
-    });
+    const authConfig = require(authConfigPath);
 
     expect(authConfig.jwt.secret).toBe("test-secret");
     expect(authConfig.jwt.expiresIn).toBeDefined();

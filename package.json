@@ -16,7 +16,11 @@
     "format": "biome check . --formatter-enabled=true --linter-enabled=false --assist-enabled=false",
     "format:write": "biome format . --write",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "typecheck:fast": "tsgo --project tsconfig.json"
+    "typecheck:fast": "tsgo --project tsconfig.json",
+    "test:vitest": "vitest run --config vitest.config.mjs --pool=forks --maxWorkers=1",
+    "test:vitest:coverage": "vitest run --config vitest.config.mjs --coverage --pool=forks --maxWorkers=1",
+    "pretest:vitest": "prisma migrate reset --force && prisma generate",
+    "pretest:vitest:coverage": "prisma migrate reset --force && prisma generate"
   },
   "collectCoverageFrom": [
     "src/**/*.js",
@@ -63,6 +67,7 @@
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@typescript/native-preview": "^7.0.0-dev.20260209.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.3.0",
@@ -73,7 +78,8 @@
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "jest": {
     "clearMocks": true,

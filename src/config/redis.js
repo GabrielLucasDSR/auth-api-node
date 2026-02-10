@@ -21,7 +21,19 @@ if (redisEnabled) {
 async function closeRedisConnection() {
   if (!redisClient) return;
   if (redisClient.status === "end") return;
-  await redisClient.quit();
+
+  // Se não estiver pronto para comando, encerra direto sem quit()
+  if (redisClient.status !== "ready") {
+    redisClient.disconnect();
+    return;
+  }
+
+  try {
+    await redisClient.quit();
+  } catch (error) {
+    // Em teardown paralelo/intermitente, garante encerramento sem quebrar a suíte
+    redisClient.disconnect();
+  }
 }
 
 module.exports = {
